@@ -175,12 +175,14 @@ void display(void)
 //    for (int i = 0; i < 40000; i += 3) {
 //        glBegin(GL_TRIANGLES);
 //        for (int j = 0; j < 3; ++j) {
-//            auto v = verts[i + j];
+//            auto v = verts_bunny[i + j];
 //            glColor3f( v.r, v.g, v.b );
 //            glVertex3f( v.x, v.y, v.z );
 //        }
 //        glEnd();
 //    }
+
+    // TODO: find nearest points and connect it with each other
 
     print_min_max_coord(verts);
     print_min_max_coord(verts_bunny);
