@@ -3,7 +3,7 @@ project(OpenGL)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(OpenGL main1.cpp ply_loader.h)
+add_executable(OpenGL main.cpp)
 
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)

@@ -84,10 +84,7 @@
 				</MakeCommands>
 			</Target>
 		</Build>
-		<Unit filename="/home/mano/CLionProjects/OpenGL/main1.cpp">
-			<Option target="OpenGL"/>
-		</Unit>
-		<Unit filename="/home/mano/CLionProjects/OpenGL/ply_loader.h">
+		<Unit filename="/home/mano/CLionProjects/OpenGL/main.cpp">
 			<Option target="OpenGL"/>
 		</Unit>
 		<Unit filename="/home/mano/CLionProjects/OpenGL/CMakeLists.txt">

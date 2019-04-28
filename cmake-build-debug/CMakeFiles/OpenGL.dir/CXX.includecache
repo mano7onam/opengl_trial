@@ -6,7 +6,7 @@
 
 #IncludeRegexTransform: 
 
-/home/mano/CLionProjects/OpenGL/main1.cpp
+/home/mano/CLionProjects/OpenGL/main.cpp
 GL/glut.h
 -
 vector
