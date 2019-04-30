@@ -6,11 +6,14 @@
 #include <algorithm>
 #include <random>
 #include <functional>
+#include <array>
+
+#include "kdtree.h"
 
 using std::vector;
 using std::pair;
 
-const int K = 5;
+const int K = 6;
 
 struct Vertex
 {
@@ -18,12 +21,40 @@ struct Vertex
     float r, g, b, a;
 };
 vector< Vertex > verts;
-vector< Vertex > verts_bunny;
-vector<std::vector<int>> bunny_g;
+vector< Vertex > vertsBunny;
+vector<std::vector<int>> bunnyG;
+
+class MyPoint : public std::array<float, 3>
+{
+public:
+
+    // dimension of space (or "k" of k-d tree)
+    // KDTree class accesses this member
+    static const int DIM = 3;
+
+    // the constructors
+    MyPoint() {}
+    MyPoint(float x, float y, float z)
+    {
+        (*this)[0] = x;
+        (*this)[1] = y;
+        (*this)[2] = z;
+    }
+};
+
+vector<MyPoint> myPointsBunny;
+kdt::KDTree<MyPoint> kdTree;
+
+void buildKdTreeFromVerts() {
+    for (auto v : vertsBunny) {
+        myPointsBunny.emplace_back(v.x, v.y, v.z);
+    }
+    kdTree.build(myPointsBunny);
+}
 
 #define sqr(x) ((x) * (x))
 
-float get_dist(Vertex a, Vertex b) {
+float getDist(Vertex a, Vertex b) {
     return sqrt(sqr(a.x - b.x) + sqr(a.y - b.y) + sqr(a.z - b.z));
 }
 
@@ -32,7 +63,7 @@ struct Triangle {
 
     Triangle(Vertex a, Vertex b, Vertex c): a(a), b(b), c(c) {}
 };
-std::vector<Triangle> triangles_bunny;
+std::vector<Triangle> trianglesBunny;
 
 std::string os = "macOS";
 std::string who = "bunny";
@@ -106,33 +137,36 @@ void timer( int extra )
     glutTimerFunc( 16, timer, 0 );
 }
 
-void build_triangles_bunny() {
-    bunny_g.assign(verts_bunny.size(), std::vector<int>());
-    for (int i = 0; i < verts_bunny.size(); ++i) {
+void buildTrianglesBunny() {
+    buildKdTreeFromVerts();
+
+    bunnyG.assign(vertsBunny.size(), std::vector<int>());
+    for (int i = 0; i < vertsBunny.size(); ++i) {
         std::cerr << i << std::endl;
-        vector<pair<float, int>> ps;
-        for (int j = 0; j < verts_bunny.size(); ++j) {
-            if (i == j) {
-                continue;
-            }
-            ps.emplace_back(get_dist(verts_bunny[i], verts_bunny[j]), j);
-        }
-        std::sort(ps.begin(), ps.end());
-        for (int j = 0; j < std::min(K, static_cast<int>(ps.size())); ++j) {
-            bunny_g[i].push_back(ps[j].second);
-        }
+//        vector<pair<float, int>> ps;
+//        for (int j = 0; j < vertsBunny.size(); ++j) {
+//            if (i == j) {
+//                continue;
+//            }
+//            ps.emplace_back(getDist(vertsBunny[i], vertsBunny[j]), j);
+//        }
+//        std::sort(ps.begin(), ps.end());
+//        for (int j = 0; j < std::min(K, static_cast<int>(ps.size())); ++j) {
+//            bunnyG[i].push_back(ps[j].second);
+//        }
+        bunnyG[i] = kdTree.knnSearch(myPointsBunny[i], K);
     }
 
-    for (int i = 0; i < bunny_g.size(); ++i) {
-        for (int j = 0; j < bunny_g[i].size(); ++j) {
-            int n1 = bunny_g[i][j];
-            for (int k = 0; k < bunny_g[n1].size(); ++k) {
-                int n2 = bunny_g[n1][k];
+    for (int i = 0; i < bunnyG.size(); ++i) {
+        for (int j = 0; j < bunnyG[i].size(); ++j) {
+            int n1 = bunnyG[i][j];
+            for (int k = 0; k < bunnyG[n1].size(); ++k) {
+                int n2 = bunnyG[n1][k];
                 if (n2 == i || n2 == n1) {
                     continue;
                 }
-                if (std::find(bunny_g[i].begin(), bunny_g[i].end(), n2) != bunny_g[i].end()) {
-                    triangles_bunny.emplace_back(verts_bunny[i], verts_bunny[n1], verts_bunny[n2]);
+                if (std::find(bunnyG[i].begin(), bunnyG[i].end(), n2) != bunnyG[i].end()) {
+                    trianglesBunny.emplace_back(vertsBunny[i], vertsBunny[n1], vertsBunny[n2]);
                 }
             }
         }
@@ -164,10 +198,10 @@ void readVerticesFromPly() {
 //        cur.r = 0.5;
 //        cur.g = 0.9;
 //        cur.b = 0.2;
-        verts_bunny.push_back(cur);
+        vertsBunny.push_back(cur);
     }
 
-    build_triangles_bunny();
+    buildTrianglesBunny();
 }
 
 template<class T>
@@ -180,7 +214,7 @@ void relax_max(T &a, T b) {
     a = std::max(a, b);
 }
 
-void print_min_max_coord(std::vector<Vertex> v) {
+void printMinMaxCoord(std::vector<Vertex> v) {
     float minx = 10000, maxx = -10000, miny = 10000, maxy = -10000, minz = 10000, maxz = -10000;
     float cx = 0, cy = 0, cz = 0;
     for (int i = 0; i < v.size(); ++i) {
@@ -238,7 +272,7 @@ void display(void)
 //    glDisableClientState( GL_VERTEX_ARRAY );
 //    glDisableClientState( GL_COLOR_ARRAY );
 
-    for (auto tr : triangles_bunny) {
+    for (auto tr : trianglesBunny) {
         glBegin(GL_TRIANGLES);
 
         glColor3f( tr.a.r, tr.a.g, tr.a.b );
@@ -255,8 +289,8 @@ void display(void)
 
     // TODO: find nearest points and connect it with each other
 
-    print_min_max_coord(verts);
-    print_min_max_coord(verts_bunny);
+    printMinMaxCoord(verts);
+    printMinMaxCoord(vertsBunny);
 
     glutSwapBuffers();
 }
