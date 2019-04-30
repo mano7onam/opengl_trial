@@ -7,13 +7,15 @@
 #include <random>
 #include <functional>
 #include <array>
+#include <cassert>
 
 #include "kdtree.h"
+#include "SetPairs.h"
 
 using std::vector;
 using std::pair;
 
-const int K = 6;
+const int K = 50;
 
 struct Vertex
 {
@@ -44,6 +46,7 @@ public:
 
 vector<MyPoint> myPointsBunny;
 kdt::KDTree<MyPoint> kdTree;
+SetPairs borderEdges;
 
 void buildKdTreeFromVerts() {
     for (auto v : vertsBunny) {
@@ -56,6 +59,14 @@ void buildKdTreeFromVerts() {
 
 float getDist(Vertex a, Vertex b) {
     return sqrt(sqr(a.x - b.x) + sqr(a.y - b.y) + sqr(a.z - b.z));
+}
+
+float getDist(MyPoint a, MyPoint b) {
+    return sqrt(sqr(a[0] - b[0]) + sqr(a[1] - b[1]) + sqr(a[2] - b[2]));
+}
+
+MyPoint getMid(MyPoint a, MyPoint b) {
+    return MyPoint((a[0] + b[0]) * 0.5f, (a[1] + b[1]) * 0.5f, (a[2] + b[2]) * 0.5f);
 }
 
 struct Triangle {
@@ -137,7 +148,7 @@ void timer( int extra )
     glutTimerFunc( 16, timer, 0 );
 }
 
-void buildTrianglesBunny() {
+void buildTrianglesBunnyOld() {
     buildKdTreeFromVerts();
 
     bunnyG.assign(vertsBunny.size(), std::vector<int>());
@@ -173,11 +184,68 @@ void buildTrianglesBunny() {
     }
 }
 
+int nNeibhors[] = {3, 4, 5, 10, 20, 50};
+void connectEdgeWithNewVert(pair<int, int> p) {
+    auto a = myPointsBunny[p.first];
+    auto b = myPointsBunny[p.second];
+    auto mab = getMid(a, b);
+    int found = -1;
+    for (int nb : nNeibhors) {
+        vector<int> inds = kdTree.knnSearch(mab, nb);
+        for (int id : inds) {
+            if (id == p.first || id == p.second) continue;
+            if (borderEdges.havePair({p.first, id}) && borderEdges.havePair({p.second, id})) continue;
+            if (borderEdges.havePair(found) && !borderEdges.havePair({p.first, id}) && !borderEdges.havePair({p.second, id})) continue;
+            found = id;
+            break;
+        }
+        if (found != -1) {
+            break;
+        }
+    }
+    if (found != -1) {
+        if (borderEdges.havePair({p.first, found})) {
+            borderEdges.erasePair({p.first, found});
+            borderEdges.addPair({p.second, found});
+        } else if (borderEdges.havePair({p.second, found})) {
+            borderEdges.erasePair({p.second, found});
+            borderEdges.addPair({p.first, found});
+        } else {
+            borderEdges.addPair({p.second, found});
+            borderEdges.addPair({p.first, found});
+        }
+        trianglesBunny.emplace_back(vertsBunny[p.first], vertsBunny[p.second], vertsBunny[found]);
+    }
+    borderEdges.erasePair(p);
+}
+
+void buildTrianglesBunny() {
+    assert(vertsBunny.size() >= 3);
+
+    buildKdTreeFromVerts();
+
+    std::mt19937::result_type seed = 7147;
+    std::mt19937 gen(seed);
+    auto indexRand = std::bind(std::uniform_int_distribution<int>(0, static_cast<int>(vertsBunny.size()) - 1), gen);
+
+    int starti = indexRand();
+    auto vnbi = kdTree.knnSearch(myPointsBunny[starti], 2);
+    int nbi = vnbi[0];
+    if (vnbi[0] == starti) nbi = vnbi[1];
+
+    borderEdges.addPair({starti, nbi});
+    int counter = 0;
+    while (!borderEdges.isEmpty()/* && counter < 10000*/) {
+        counter++;
+        auto p = borderEdges.getFirstPair();
+        connectEdgeWithNewVert(p);
+    }
+}
+
 void readVerticesFromPly() {
-    std::mt19937 gen;
-    std::mt19937::result_type seed = time(0);
-    auto real_rand = std::bind(std::uniform_real_distribution<float>(0,1),
-                               std::mt19937(seed));
+    std::mt19937::result_type seed = 7147;
+    std::mt19937 gen(seed);
+    auto real_rand = std::bind(std::uniform_real_distribution<float>(0,1), gen);
 
     auto in = std::ifstream("../bunny/bun000.ply");
     std::string dummy;

@@ -3,7 +3,7 @@ project(OpenGL)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(OpenGL main.cpp kdtree.h)
+add_executable(OpenGL main.cpp kdtree.h SetPairs.h)
 
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
