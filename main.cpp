@@ -1,4 +1,13 @@
+#define UBUNTU
+
+#ifdef UBUNTU
+#include <GL/glut.h>
+#include "Triangulation.h"
+#include "DataStructure.h"
+#else
 #include <GLUT/glut.h>
+#endif
+
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -8,6 +17,7 @@
 #include <functional>
 #include <array>
 #include <cassert>
+#include <tuple>
 
 #include "kdtree.h"
 #include "SetPairs.h"
@@ -25,6 +35,7 @@ struct Vertex
 vector< Vertex > verts;
 vector< Vertex > vertsBunny;
 vector<std::vector<int>> bunnyG;
+vector<std::tuple<int, int, int>*> bunnyMesh;
 
 class MyPoint : public std::array<float, 3>
 {
@@ -76,7 +87,12 @@ struct Triangle {
 };
 std::vector<Triangle> trianglesBunny;
 
+#ifdef UBUNTU
+std::string os = "ubuntu";
+#else
 std::string os = "macOS";
+#endif
+
 std::string who = "bunny";
 
 void fillVerts()
@@ -219,7 +235,7 @@ void connectEdgeWithNewVert(pair<int, int> p) {
     borderEdges.erasePair(p);
 }
 
-void buildTrianglesBunny() {
+void buildTrianglesBunnyOld1() {
     assert(vertsBunny.size() >= 3);
 
     buildKdTreeFromVerts();
@@ -242,12 +258,25 @@ void buildTrianglesBunny() {
     }
 }
 
+void buildTrianglesBunny() {
+    vector<dt::Vector3D*> dots;
+    for (auto v : vertsBunny) {
+        dots.push_back(new dt::Vector3D(v.x, v.y, v.z));
+    }
+    dt::DelaunayTriangulation delanuaryTriangulation;
+    bunnyMesh = delanuaryTriangulation.GetTriangulationResult(dots);
+}
+
 void readVerticesFromPly() {
     std::mt19937::result_type seed = 7147;
     std::mt19937 gen(seed);
     auto real_rand = std::bind(std::uniform_real_distribution<float>(0,1), gen);
 
+#ifdef UBUNTU
+    auto in = std::ifstream("/home/mano/CLionProjects/opengl_trial/bunny/bun000.ply");
+#else
     auto in = std::ifstream("../bunny/bun000.ply");
+#endif
     std::string dummy;
     for (int i = 0; i < 24; ++i) {
         getline(in, dummy);
@@ -340,22 +369,39 @@ void display(void)
 //    glDisableClientState( GL_VERTEX_ARRAY );
 //    glDisableClientState( GL_COLOR_ARRAY );
 
-    for (auto tr : trianglesBunny) {
+//    for (auto tr : trianglesBunny) {
+//        glBegin(GL_TRIANGLES);
+//
+//        glColor3f( tr.a.r, tr.a.g, tr.a.b );
+//        glVertex3f( tr.a.x, tr.a.y, tr.a.z );
+//
+//        glColor3f( tr.b.r, tr.b.g, tr.b.b );
+//        glVertex3f( tr.b.x, tr.b.y, tr.b.z );
+//
+//        glColor3f( tr.c.r, tr.c.g, tr.c.b );
+//        glVertex3f( tr.c.x, tr.c.y, tr.c.z );
+//
+//        glEnd();
+//    }
+
+    for (auto tr : bunnyMesh) {
         glBegin(GL_TRIANGLES);
 
-        glColor3f( tr.a.r, tr.a.g, tr.a.b );
-        glVertex3f( tr.a.x, tr.a.y, tr.a.z );
+        Vertex a = vertsBunny[std::get<0>(*tr)];
+        Vertex b = vertsBunny[std::get<1>(*tr)];
+        Vertex c = vertsBunny[std::get<2>(*tr)];
 
-        glColor3f( tr.b.r, tr.b.g, tr.b.b );
-        glVertex3f( tr.b.x, tr.b.y, tr.b.z );
+        glColor3f( a.r, a.g, a.b );
+        glVertex3f( a.x, a.y, a.z );
 
-        glColor3f( tr.c.r, tr.c.g, tr.c.b );
-        glVertex3f( tr.c.x, tr.c.y, tr.c.z );
+        glColor3f( b.r, b.g, b.b );
+        glVertex3f( b.x, b.y, b.z );
+
+        glColor3f( c.r, c.g, c.b );
+        glVertex3f( c.x, c.y, c.z );
 
         glEnd();
     }
-
-    // TODO: find nearest points and connect it with each other
 
     printMinMaxCoord(verts);
     printMinMaxCoord(vertsBunny);
