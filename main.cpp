@@ -18,6 +18,7 @@
 #include <array>
 #include <cassert>
 #include <tuple>
+#include <cmath>
 
 #include "kdtree.h"
 #include "SetPairs.h"
@@ -74,6 +75,30 @@ float getDist(Vertex a, Vertex b) {
 
 float getDist(MyPoint a, MyPoint b) {
     return sqrt(sqr(a[0] - b[0]) + sqr(a[1] - b[1]) + sqr(a[2] - b[2]));
+}
+
+float getS(Vertex a, Vertex b, Vertex c) {
+//    auto a = vertsBunny[std::get<0>(t)];
+//    auto b = vertsBunny[std::get<1>(t)];
+//    auto c = vertsBunny[std::get<2>(t)];
+
+//    float e1x = b.x - a.x;
+//    float e1y = b.y - a.y;
+//    float e1z = b.z - a.z;
+//
+//    float e2x = c.x - a.x;
+//    float e2y = c.y - a.y;
+//    float e2z = c.z - a.z;
+//
+//    float e3x = e1y * e2z - e1z * e2y;
+//    float e3y = e1z * e2x - e1x * e2z;
+//    float e3z = e1x * e2y - e1y * e2x;
+//
+//    return abs(0.5 * sqrt(e3x * e3x + e3y * e3y + e3z * e3z));
+
+    return abs(a.x - b.x) + abs(a.y - b.y) + abs(a.z - b.z) +
+            abs(a.x - c.x) + abs(a.y - c.y) + abs(a.z - c.z) +
+            abs(b.x - c.x) + abs(b.y - c.y) + abs(b.z - c.z);
 }
 
 MyPoint getMid(MyPoint a, MyPoint b) {
@@ -154,11 +179,20 @@ void fillVerts()
     }
 }
 
-float angle = 0;
+namespace gls {
+    float angle = 0;
+    float zoom = 0;
+    float theta = 0;
+    float phi = 0;
+    bool gluLookAt_On = true;
+    int width;
+    int height;
+}
+
 void timer( int extra )
 {
     // spin
-    angle += 0.5;
+    gls::angle += 0.5;
 
     glutPostRedisplay();
     glutTimerFunc( 16, timer, 0 );
@@ -352,7 +386,7 @@ void display(void)
 //    gluLookAt( 70, 70, 70, 0, 0, 0, 0, 0, 1 );
     gluLookAt( 0.1, 0.3, 0.2, 0, 0, 0.1, 0, 0, 1 );
 
-    glRotatef( angle, 0, 0, 1 );
+    glRotatef( gls::angle, 0, 0, 1 );
 
     // draw curve
 //    glEnableClientState( GL_VERTEX_ARRAY );
@@ -384,12 +418,29 @@ void display(void)
 //        glEnd();
 //    }
 
-    for (auto tr : bunnyMesh) {
-        glBegin(GL_TRIANGLES);
-
+    float minS = 10000000;
+    for (auto tr: bunnyMesh) {
         Vertex a = vertsBunny[std::get<0>(*tr)];
         Vertex b = vertsBunny[std::get<1>(*tr)];
         Vertex c = vertsBunny[std::get<2>(*tr)];
+        float s = getS(a, b, c);
+        if (s > 0.0) {
+            minS = std::min(minS, s);
+        }
+    }
+
+    for (auto tr : bunnyMesh) {
+        Vertex a = vertsBunny[std::get<0>(*tr)];
+        Vertex b = vertsBunny[std::get<1>(*tr)];
+        Vertex c = vertsBunny[std::get<2>(*tr)];
+
+        float s = getS(a, b, c);
+
+        if (s > minS * 70) {
+            continue;
+        }
+
+        glBegin(GL_TRIANGLES);
 
         glColor3f( a.r, a.g, a.b );
         glVertex3f( a.x, a.y, a.z );
@@ -409,6 +460,51 @@ void display(void)
     glutSwapBuffers();
 }
 
+void changeSize(int w, int h){
+    gls::width = w;
+    gls::height = h;
+
+    if(h == 0) h = 1;
+    float ratio = 1.0 * w / h;
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+//    glViewport(0, 0, w, h);
+
+//    gluPerspective(45, ratio, 1, 1000);
+
+//    float r = 5.0f;
+//    float eyeX = r * sin(gls::theta * gls::radianFactor) * cos(gls::phi * gls::radianFactor);
+//    float eyeY = r * sin(gls::theta * radianFactor) * sin(gls::phi * radianFactor);
+//    float eyeZ = r * cos(radianFactor * gls::theta);
+//
+//    float centerX = 0, centerY = 0, centerZ = 0;
+//    float upX = 0, upY = 1.0f, upZ = 0;
+//
+//    if(gls::gluLookAt_On) {
+//        gluLookAt(eyeX, eyeY, eyeZ,
+//                  centerX, centerY, centerZ,
+//                  upX, upY, upZ);
+//    }
+
+    glScalef(gls::zoom, gls::zoom, gls::zoom);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+void inputKey(unsigned char c, int x, int y){
+    switch (c) {
+        case 'i' : gls::zoom = gls::zoom+ 0.5; break;
+        case 'o' : gls::zoom = gls::zoom-0.5; break;
+        case 't' : gls::theta++; if(gls::theta > 360) gls::theta = 1; break;
+        case 'p' : gls::phi++; if(gls::phi > 360) gls::phi = 1; break;
+        case 'T' : gls::theta--; if(gls::theta < 0) gls::theta = 359; break;
+        case 'P' : gls::phi--; if(gls::phi < 0) gls::phi = 359; break;
+        case 'g' : gls::gluLookAt_On = !gls::gluLookAt_On;; break;
+    }
+    changeSize(gls::width, gls::height);
+}
+
 int main( int argc, char **argv )
 {
     glutInit( &argc, argv );
@@ -417,6 +513,8 @@ int main( int argc, char **argv )
     glutCreateWindow( "Attractor" );
 
     glutDisplayFunc( display );
+    glutKeyboardFunc(inputKey);
+    glutReshapeFunc(changeSize);
     glutTimerFunc( 0, timer, 0 );
 
     fillVerts();
