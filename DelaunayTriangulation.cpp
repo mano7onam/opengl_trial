@@ -78,14 +78,18 @@ vector<tuple<int, int, int>*> DelaunayTriangulation::GetTriangulationResult(vect
     // prepare initial convex hull with 6 vertices and 8 triangle faces
     BuildInitialHull(_ProjectedDots);
 
+    int counter = 0;
     for (itDots = _ProjectedDots->begin(); itDots != _ProjectedDots->end(); itDots++)
     {
+        fprintf(stderr, "Counter: %d\n", counter);
+        counter++;
         Vector3D* dot = *itDots;
         if (!dot->IsVisited)
         {
             InsertDot(dot);
         }
     }
+    fprintf(stderr, "Ready %d\n", counter);
 
     // remove trianges connected with auxiliary dots
     RemoveExtraTriangles();
@@ -185,9 +189,15 @@ void DelaunayTriangulation::InsertDot(Vector3D* dot)
     it = _Mesh->begin();
     Triangle* triangle = *it;
 
+    int counter = 0;
     while (it != _Mesh->end())
     {
         _Statistics[0]++;
+
+        counter++;
+        if (counter > 40000) {
+            return;
+        }
 
         det[0] = GetDeterminant(triangle->Vertex[0], triangle->Vertex[1], dot);
         det[1] = GetDeterminant(triangle->Vertex[1], triangle->Vertex[2], dot);

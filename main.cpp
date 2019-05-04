@@ -1,9 +1,7 @@
-#define UBUNTU
+#define MACOS
 
 #ifdef UBUNTU
 #include <GL/glut.h>
-#include "Triangulation.h"
-#include "DataStructure.h"
 #else
 #include <GLUT/glut.h>
 #endif
@@ -22,6 +20,8 @@
 
 #include "kdtree.h"
 #include "SetPairs.h"
+#include "Triangulation.h"
+#include "DataStructure.h"
 
 using std::vector;
 using std::pair;
@@ -234,7 +234,7 @@ void buildTrianglesBunnyOld() {
     }
 }
 
-int nNeibhors[] = {3, 4, 5, 10, 20, 50};
+int nNeibhors[] = {3, 4, 5, 10, 20, 50, 100};
 void connectEdgeWithNewVert(pair<int, int> p) {
     auto a = myPointsBunny[p.first];
     auto b = myPointsBunny[p.second];
@@ -292,13 +292,55 @@ void buildTrianglesBunnyOld1() {
     }
 }
 
-void buildTrianglesBunny() {
+void buildTrianglesBunnyDelaunay() {
     vector<dt::Vector3D*> dots;
     for (auto v : vertsBunny) {
         dots.push_back(new dt::Vector3D(v.x, v.y, v.z));
     }
-    dt::DelaunayTriangulation delanuaryTriangulation;
-    bunnyMesh = delanuaryTriangulation.GetTriangulationResult(dots);
+    dt::DelaunayTriangulation delaunayTriangulation;
+    bunnyMesh = delaunayTriangulation.GetTriangulationResult(dots);
+    int aaaaa = 145;
+}
+
+vector<int> getNotUsedTriangle(vector<int> &nbs, vector<bool> &used) {
+    vector<int> result;
+    int cur = 0;
+    for (int nb : nbs) {
+        if (used[nb]) {
+            continue;
+        }
+        result.push_back(nb);
+        if (result.size() == 3U) {
+            break;
+        }
+    }
+    return result;
+}
+
+void buildTrianglesBunny() {
+    buildKdTreeFromVerts();
+
+    std::mt19937::result_type seed = 7147;
+    std::mt19937 gen(seed);
+    auto indexRand = std::bind(std::uniform_int_distribution<int>(0, static_cast<int>(vertsBunny.size()) - 1), gen);
+
+    vector<bool> used(vertsBunny.size(), false);
+    for (int i = 0; i < vertsBunny.size(); ++i) {
+        if (used[i]) {
+            continue;
+        }
+        for (int nnb : nNeibhors) {
+            auto nbs = kdTree.knnSearch(myPointsBunny[i], nnb);
+            auto tr = getNotUsedTriangle(nbs, used);
+            if (tr.size() == 3U) {
+                trianglesBunny.emplace_back(vertsBunny[tr[0]], vertsBunny[tr[1]], vertsBunny[tr[2]]);
+                for (int j = 0; j < 3; ++j) {
+                    used[tr[j]] = true;
+                }
+                break;
+            }
+        }
+    }
 }
 
 void readVerticesFromPly() {
@@ -323,9 +365,9 @@ void readVerticesFromPly() {
         cur.y = z;
         cur.z = y;
         cur.a = 0.5f;
-        cur.r = real_rand();
-        cur.g = real_rand();
-        cur.b = real_rand();
+        cur.r = real_rand() / 10.0f + 0.8f;
+        cur.g = real_rand() / 10.0f + 0.8f;
+        cur.b = real_rand() / 10.0f + 0.8f;
 //        cur.r = 0.5;
 //        cur.g = 0.9;
 //        cur.b = 0.2;
@@ -403,20 +445,20 @@ void display(void)
 //    glDisableClientState( GL_VERTEX_ARRAY );
 //    glDisableClientState( GL_COLOR_ARRAY );
 
-//    for (auto tr : trianglesBunny) {
-//        glBegin(GL_TRIANGLES);
-//
-//        glColor3f( tr.a.r, tr.a.g, tr.a.b );
-//        glVertex3f( tr.a.x, tr.a.y, tr.a.z );
-//
-//        glColor3f( tr.b.r, tr.b.g, tr.b.b );
-//        glVertex3f( tr.b.x, tr.b.y, tr.b.z );
-//
-//        glColor3f( tr.c.r, tr.c.g, tr.c.b );
-//        glVertex3f( tr.c.x, tr.c.y, tr.c.z );
-//
-//        glEnd();
-//    }
+    for (auto tr : trianglesBunny) {
+        glBegin(GL_TRIANGLES);
+
+        glColor3f( tr.a.r, tr.a.g, tr.a.b );
+        glVertex3f( tr.a.x, tr.a.y, tr.a.z );
+
+        glColor3f( tr.b.r, tr.b.g, tr.b.b );
+        glVertex3f( tr.b.x, tr.b.y, tr.b.z );
+
+        glColor3f( tr.c.r, tr.c.g, tr.c.b );
+        glVertex3f( tr.c.x, tr.c.y, tr.c.z );
+
+        glEnd();
+    }
 
     float minS = 10000000;
     for (auto tr: bunnyMesh) {
@@ -429,30 +471,30 @@ void display(void)
         }
     }
 
-    for (auto tr : bunnyMesh) {
-        Vertex a = vertsBunny[std::get<0>(*tr)];
-        Vertex b = vertsBunny[std::get<1>(*tr)];
-        Vertex c = vertsBunny[std::get<2>(*tr)];
-
-        float s = getS(a, b, c);
-
-        if (s > minS * 70) {
-            continue;
-        }
-
-        glBegin(GL_TRIANGLES);
-
-        glColor3f( a.r, a.g, a.b );
-        glVertex3f( a.x, a.y, a.z );
-
-        glColor3f( b.r, b.g, b.b );
-        glVertex3f( b.x, b.y, b.z );
-
-        glColor3f( c.r, c.g, c.b );
-        glVertex3f( c.x, c.y, c.z );
-
-        glEnd();
-    }
+//    for (auto tr : bunnyMesh) {
+//        Vertex a = vertsBunny[std::get<0>(*tr)];
+//        Vertex b = vertsBunny[std::get<1>(*tr)];
+//        Vertex c = vertsBunny[std::get<2>(*tr)];
+//
+//        float s = getS(a, b, c);
+//
+//        if (s > minS * 40) {
+//            continue;
+//        }
+//
+//        glBegin(GL_TRIANGLES);
+//
+//        glColor3f( a.r, a.g, a.b );
+//        glVertex3f( a.x, a.y, a.z );
+//
+//        glColor3f( b.r, b.g, b.b );
+//        glVertex3f( b.x, b.y, b.z );
+//
+//        glColor3f( c.r, c.g, c.b );
+//        glVertex3f( c.x, c.y, c.z );
+//
+//        glEnd();
+//    }
 
     printMinMaxCoord(verts);
     printMinMaxCoord(vertsBunny);
