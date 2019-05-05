@@ -22,6 +22,7 @@
 #include "SetPairs.h"
 #include "Triangulation.h"
 #include "DataStructure.h"
+#include "DSU.h"
 
 using std::vector;
 using std::pair;
@@ -36,6 +37,7 @@ struct Vertex
 vector< Vertex > verts;
 vector< Vertex > vertsBunny;
 vector<std::vector<int>> bunnyG;
+DSU bunnyDSU;
 vector<std::tuple<int, int, int>*> bunnyMesh;
 
 class MyPoint : public std::array<float, 3>
@@ -58,7 +60,7 @@ public:
 
 vector<MyPoint> myPointsBunny;
 kdt::KDTree<MyPoint> kdTree;
-SetPairs borderEdges;
+SetPairs bunnyBorderEdges;
 
 void buildKdTreeFromVerts() {
     for (auto v : vertsBunny) {
@@ -234,63 +236,63 @@ void buildTrianglesBunnyOld() {
     }
 }
 
-int nNeibhors[] = {3, 4, 5, 10, 20, 50, 100};
-void connectEdgeWithNewVert(pair<int, int> p) {
-    auto a = myPointsBunny[p.first];
-    auto b = myPointsBunny[p.second];
-    auto mab = getMid(a, b);
-    int found = -1;
-    for (int nb : nNeibhors) {
-        vector<int> inds = kdTree.knnSearch(mab, nb);
-        for (int id : inds) {
-            if (id == p.first || id == p.second) continue;
-            if (borderEdges.havePair({p.first, id}) && borderEdges.havePair({p.second, id})) continue;
-            if (borderEdges.havePair(found) && !borderEdges.havePair({p.first, id}) && !borderEdges.havePair({p.second, id})) continue;
-            found = id;
-            break;
-        }
-        if (found != -1) {
-            break;
-        }
-    }
-    if (found != -1) {
-        if (borderEdges.havePair({p.first, found})) {
-            borderEdges.erasePair({p.first, found});
-            borderEdges.addPair({p.second, found});
-        } else if (borderEdges.havePair({p.second, found})) {
-            borderEdges.erasePair({p.second, found});
-            borderEdges.addPair({p.first, found});
-        } else {
-            borderEdges.addPair({p.second, found});
-            borderEdges.addPair({p.first, found});
-        }
-        trianglesBunny.emplace_back(vertsBunny[p.first], vertsBunny[p.second], vertsBunny[found]);
-    }
-    borderEdges.erasePair(p);
-}
-
-void buildTrianglesBunnyOld1() {
-    assert(vertsBunny.size() >= 3);
-
-    buildKdTreeFromVerts();
-
-    std::mt19937::result_type seed = 7147;
-    std::mt19937 gen(seed);
-    auto indexRand = std::bind(std::uniform_int_distribution<int>(0, static_cast<int>(vertsBunny.size()) - 1), gen);
-
-    int starti = indexRand();
-    auto vnbi = kdTree.knnSearch(myPointsBunny[starti], 2);
-    int nbi = vnbi[0];
-    if (vnbi[0] == starti) nbi = vnbi[1];
-
-    borderEdges.addPair({starti, nbi});
-    int counter = 0;
-    while (!borderEdges.isEmpty()/* && counter < 10000*/) {
-        counter++;
-        auto p = borderEdges.getFirstPair();
-        connectEdgeWithNewVert(p);
-    }
-}
+//int nNeighbors[] = {3, 4, 5, 10, 20, 50, 100};
+//void connectEdgeWithNewVertOld(pair<int, int> p) {
+//    auto a = myPointsBunny[p.first];
+//    auto b = myPointsBunny[p.second];
+//    auto mab = getMid(a, b);
+//    int found = -1;
+//    for (int nb : nNeighbors) {
+//        vector<int> inds = kdTree.knnSearch(mab, nb);
+//        for (int id : inds) {
+//            if (id == p.first || id == p.second) continue;
+//            if (bunnyBorderEdges.havePair({p.first, id}) && bunnyBorderEdges.havePair({p.second, id})) continue;
+//            if (bunnyBorderEdges.havePair(found) && !bunnyBorderEdges.havePair({p.first, id}) && !bunnyBorderEdges.havePair({p.second, id})) continue;
+//            found = id;
+//            break;
+//        }
+//        if (found != -1) {
+//            break;
+//        }
+//    }
+//    if (found != -1) {
+//        if (bunnyBorderEdges.havePair({p.first, found})) {
+//            bunnyBorderEdges.erasePair({p.first, found});
+//            bunnyBorderEdges.addPair({p.second, found});
+//        } else if (bunnyBorderEdges.havePair({p.second, found})) {
+//            bunnyBorderEdges.erasePair({p.second, found});
+//            bunnyBorderEdges.addPair({p.first, found});
+//        } else {
+//            bunnyBorderEdges.addPair({p.second, found});
+//            bunnyBorderEdges.addPair({p.first, found});
+//        }
+//        trianglesBunny.emplace_back(vertsBunny[p.first], vertsBunny[p.second], vertsBunny[found]);
+//    }
+//    bunnyBorderEdges.erasePair(p);
+//}
+//
+//void buildTrianglesBunnyOld1() {
+//    assert(vertsBunny.size() >= 3);
+//
+//    buildKdTreeFromVerts();
+//
+//    std::mt19937::result_type seed = 7147;
+//    std::mt19937 gen(seed);
+//    auto indexRand = std::bind(std::uniform_int_distribution<int>(0, static_cast<int>(vertsBunny.size()) - 1), gen);
+//
+//    int starti = indexRand();
+//    auto vnbi = kdTree.knnSearch(myPointsBunny[starti], 2);
+//    int nbi = vnbi[0];
+//    if (vnbi[0] == starti) nbi = vnbi[1];
+//
+//    bunnyBorderEdges.addPair({starti, nbi});
+//    int counter = 0;
+//    while (!bunnyBorderEdges.isEmpty()/* && counter < 10000*/) {
+//        counter++;
+//        auto p = bunnyBorderEdges.getFirstPair();
+//        connectEdgeWithNewVert(p);
+//    }
+//}
 
 void buildTrianglesBunnyDelaunay() {
     vector<dt::Vector3D*> dots;
@@ -317,29 +319,108 @@ vector<int> getNotUsedTriangle(vector<int> &nbs, vector<bool> &used) {
     return result;
 }
 
+bool haveNeighbor(int a, int b) {
+    for (int v : bunnyG[a]) {
+        if (v == b) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void connectVertices(int a, int b) {
+    bunnyG[a].push_back(b);
+    bunnyG[b].push_back(a);
+}
+
+int nNeighbors[] = {3, 4, 5, 10, 20, 50, 100};
+void connectEdgeWithNewVert(pair<int, int> p) {
+    auto a = myPointsBunny[p.first];
+    auto b = myPointsBunny[p.second];
+    auto mab = getMid(a, b);
+    int found = -1;
+
+    for (int nb : nNeighbors) {
+        vector<int> inds = kdTree.knnSearch(mab, nb);
+        for (int id : inds) {
+            if (id == p.first || id == p.second) continue;
+            if (haveNeighbor(p.first, id) && haveNeighbor(p.second, id)) continue;
+
+            int pid = bunnyDSU.findSet(id);
+            int pa = bunnyDSU.findSet(p.first);
+            int pb = bunnyDSU.findSet(p.second);
+            assert(pa == pb);
+            if (pid == pa && !haveNeighbor(id, p.first) && !haveNeighbor(id, p.second)) continue;
+
+            found = id;
+            break;
+        }
+        if (found != -1) {
+            break;
+        }
+    }
+
+    if (found != -1) {
+        if (haveNeighbor(found, p.first)) {
+            bunnyBorderEdges.erasePair({p.first, found});
+            bunnyBorderEdges.addPair({p.second, found});
+            connectVertices(p.second, found);
+        } else if (haveNeighbor(found, p.second)) {
+            bunnyBorderEdges.erasePair({p.second, found});
+            bunnyBorderEdges.addPair({p.first, found});
+            connectVertices(p.first, found);
+        } else {
+            bunnyBorderEdges.addPair({p.second, found});
+            bunnyBorderEdges.addPair({p.first, found});
+            connectVertices(p.first, found);
+            connectVertices(p.second, found);
+        }
+        trianglesBunny.emplace_back(vertsBunny[p.first], vertsBunny[p.second], vertsBunny[found]);
+        bunnyDSU.unionSets(p.first, found);
+    }
+
+    bunnyBorderEdges.erasePair(p);
+}
+
 void buildTrianglesBunny() {
     buildKdTreeFromVerts();
 
-    std::mt19937::result_type seed = 7147;
-    std::mt19937 gen(seed);
-    auto indexRand = std::bind(std::uniform_int_distribution<int>(0, static_cast<int>(vertsBunny.size()) - 1), gen);
+    bunnyDSU.init(vertsBunny.size());
+    bunnyG.assign(vertsBunny.size(), vector<int>());
 
     vector<bool> used(vertsBunny.size(), false);
     for (int i = 0; i < vertsBunny.size(); ++i) {
         if (used[i]) {
             continue;
         }
-        for (int nnb : nNeibhors) {
+        for (int nnb : nNeighbors) {
             auto nbs = kdTree.knnSearch(myPointsBunny[i], nnb);
             auto tr = getNotUsedTriangle(nbs, used);
             if (tr.size() == 3U) {
                 trianglesBunny.emplace_back(vertsBunny[tr[0]], vertsBunny[tr[1]], vertsBunny[tr[2]]);
                 for (int j = 0; j < 3; ++j) {
                     used[tr[j]] = true;
+                    for (int k = 0; k < 3; ++k) {
+                        if (k == j) {
+                            continue;
+                        }
+                        if (j < k) {
+                            bunnyBorderEdges.addPair({tr[j], tr[k]});
+                        }
+                        bunnyG[tr[j]].push_back(tr[k]);
+                        bunnyDSU.unionSets(tr[j], tr[k]);
+                    }
                 }
                 break;
             }
         }
+    }
+
+    int counter = 0;
+    while (!bunnyBorderEdges.isEmpty() && counter < 100000) {
+        counter++;
+        auto p = bunnyBorderEdges.getFirstPair();
+        connectEdgeWithNewVert(p);
     }
 }
 
