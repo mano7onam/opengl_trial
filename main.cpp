@@ -26,6 +26,7 @@
 
 using std::vector;
 using std::pair;
+using std::string;
 
 const int K = 50;
 
@@ -333,7 +334,7 @@ void connectVertices(int a, int b) {
     bunnyG[b].push_back(a);
 }
 
-int nNeighbors[] = {3, 4, 5, 10, 20, 50, 100};
+int nNeighbors[] = {3, 4, 5, 6, 7, 8, 10};
 void connectEdgeWithNewVert(pair<int, int> p) {
     auto a = myPointsBunny[p.first];
     auto b = myPointsBunny[p.second];
@@ -345,6 +346,7 @@ void connectEdgeWithNewVert(pair<int, int> p) {
         for (int id : inds) {
             if (id == p.first || id == p.second) continue;
             if (haveNeighbor(p.first, id) && haveNeighbor(p.second, id)) continue;
+//            if (bunnyG[id].size() > 6) continue;
 
             int pid = bunnyDSU.findSet(id);
             int pa = bunnyDSU.findSet(p.first);
@@ -382,6 +384,23 @@ void connectEdgeWithNewVert(pair<int, int> p) {
     bunnyBorderEdges.erasePair(p);
 }
 
+void saveTrianglesToFile() {
+    std::ofstream out("triangles000.txt");
+    out << trianglesBunny.size() << '\n';
+    for (int i = 0; i < trianglesBunny.size(); ++i) {
+        auto tr = trianglesBunny[i];
+        out << tr.a.x << ' ' << tr.a.y << ' ' << tr.a.z << '\n';
+        out << tr.b.x << ' ' << tr.b.y << ' ' << tr.b.z << '\n';
+        out << tr.c.x << ' ' << tr.c.y << ' ' << tr.c.z << '\n';
+    }
+}
+
+void readTiranglesFromFile() {
+    std::ifstream in("triangles000.txt");
+    int n;
+
+}
+
 void buildTrianglesBunny() {
     buildKdTreeFromVerts();
 
@@ -417,7 +436,7 @@ void buildTrianglesBunny() {
     }
 
     int counter = 0;
-    while (!bunnyBorderEdges.isEmpty() && counter < 100000) {
+    while (!bunnyBorderEdges.isEmpty()) {
         counter++;
         auto p = bunnyBorderEdges.getFirstPair();
         connectEdgeWithNewVert(p);
@@ -432,30 +451,42 @@ void readVerticesFromPly() {
 #ifdef UBUNTU
     auto in = std::ifstream("/home/mano/CLionProjects/opengl_trial/bunny/bun000.ply");
 #else
-    auto in = std::ifstream("../bunny/bun000.ply");
+    vector<string> files = {"../bunny/bun000.ply", /*"../bunny/bun045.ply",*/ "../bunny/bun090.ply", "../bunny/bun180.ply", "../bunny/bun270.ply"/*, "../bunny/bun315.ply"*/};
+    vector<float> angs = {0, /*M_PI / 4.0,*/ -M_PI / 2.0, M_PI, -3.0 * M_PI / 2.0};
+    vector<int> nums = {40256, /*40097, */30379, 40251, 31701/*, 35336*/};
 #endif
-    std::string dummy;
-    for (int i = 0; i < 24; ++i) {
-        getline(in, dummy);
-    }
-    float x, y, z;
-    for (int i = 0; i < 40256; ++i) {
-        in >> x >> y >> z;
-        Vertex cur;
-        cur.x = x;
-        cur.y = z;
-        cur.z = y;
-        cur.a = 0.5f;
-        cur.r = real_rand() / 10.0f + 0.8f;
-        cur.g = real_rand() / 10.0f + 0.8f;
-        cur.b = real_rand() / 10.0f + 0.8f;
-//        cur.r = 0.5;
-//        cur.g = 0.9;
-//        cur.b = 0.2;
-        vertsBunny.push_back(cur);
+    for (int jj = 0; jj < 4/*files.size()*/; ++jj) {
+        auto in = std::ifstream(files[jj]);
+        std::string dummy;
+        for (int i = 0; i < 24; ++i) {
+            getline(in, dummy);
+        }
+        float x, y, z;
+        for (int i = 0; i < nums[jj]; ++i) {
+            in >> x >> y >> z;
+            Vertex cur;
+            cur.x = x;
+            cur.z = y;
+            cur.y = z;
+
+            cur.x = x * cos(angs[jj]) - z * sin(angs[jj]);
+            cur.y = x * sin(angs[jj]) + z * cos(angs[jj]);
+
+//            cur.z = y * cos(angs[jj]) - x * sin(angs[jj]);
+//            cur.x = y * sin(angs[jj]) + x * cos(angs[jj]);
+
+//            cur.y = cur.y * cos(angs[jj]) - cur.z * sin(angs[jj]);
+//            cur.z = cur.y * sin(angs[jj]) + cur.z * cos(angs[jj]);
+
+            cur.a = 0.5f;
+            cur.r = real_rand() / 10.0f + 0.8f;
+            cur.g = real_rand() / 10.0f + 0.8f;
+            cur.b = real_rand() / 10.0f + 0.8f;
+            vertsBunny.push_back(cur);
+        }
     }
 
-    buildTrianglesBunny();
+    //buildTrianglesBunnyDelaunay();
 }
 
 template<class T>
@@ -541,6 +572,14 @@ void display(void)
         glEnd();
     }
 
+    for (auto v : vertsBunny) {
+        glBegin(GL_POINTS);
+        glColor3f(1.0,0.0,0.1);
+        glPointSize(0.000000001);
+        glVertex3f(v.x, v.y, v.z);
+        glEnd();
+    }
+
     float minS = 10000000;
     for (auto tr: bunnyMesh) {
         Vertex a = vertsBunny[std::get<0>(*tr)];
@@ -552,30 +591,30 @@ void display(void)
         }
     }
 
-//    for (auto tr : bunnyMesh) {
-//        Vertex a = vertsBunny[std::get<0>(*tr)];
-//        Vertex b = vertsBunny[std::get<1>(*tr)];
-//        Vertex c = vertsBunny[std::get<2>(*tr)];
-//
-//        float s = getS(a, b, c);
-//
-//        if (s > minS * 40) {
-//            continue;
-//        }
-//
-//        glBegin(GL_TRIANGLES);
-//
-//        glColor3f( a.r, a.g, a.b );
-//        glVertex3f( a.x, a.y, a.z );
-//
-//        glColor3f( b.r, b.g, b.b );
-//        glVertex3f( b.x, b.y, b.z );
-//
-//        glColor3f( c.r, c.g, c.b );
-//        glVertex3f( c.x, c.y, c.z );
-//
-//        glEnd();
-//    }
+    for (auto tr : bunnyMesh) {
+        Vertex a = vertsBunny[std::get<0>(*tr)];
+        Vertex b = vertsBunny[std::get<1>(*tr)];
+        Vertex c = vertsBunny[std::get<2>(*tr)];
+
+        float s = getS(a, b, c);
+
+        if (s > minS * 20) {
+            continue;
+        }
+
+        glBegin(GL_TRIANGLES);
+
+        glColor3f( a.r, a.g, a.b );
+        glVertex3f( a.x, a.y, a.z );
+
+        glColor3f( b.r, b.g, b.b );
+        glVertex3f( b.x, b.y, b.z );
+
+        glColor3f( c.r, c.g, c.b );
+        glVertex3f( c.x, c.y, c.z );
+
+        glEnd();
+    }
 
     printMinMaxCoord(verts);
     printMinMaxCoord(vertsBunny);
