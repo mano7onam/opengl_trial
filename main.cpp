@@ -486,7 +486,8 @@ void readVerticesFromPly() {
         }
     }
 
-    //buildTrianglesBunnyDelaunay();
+    buildTrianglesBunny();
+    saveTrianglesToFile();
 }
 
 template<class T>
@@ -572,13 +573,13 @@ void display(void)
         glEnd();
     }
 
-    for (auto v : vertsBunny) {
-        glBegin(GL_POINTS);
-        glColor3f(1.0,0.0,0.1);
-        glPointSize(0.000000001);
-        glVertex3f(v.x, v.y, v.z);
-        glEnd();
-    }
+//    for (auto v : vertsBunny) {
+//        glBegin(GL_POINTS);
+//        glColor3f(1.0,0.0,0.1);
+//        glPointSize(0.000000001);
+//        glVertex3f(v.x, v.y, v.z);
+//        glEnd();
+//    }
 
     float minS = 10000000;
     for (auto tr: bunnyMesh) {
@@ -598,9 +599,9 @@ void display(void)
 
         float s = getS(a, b, c);
 
-        if (s > minS * 20) {
-            continue;
-        }
+//        if (s > minS * 20) {
+//            continue;
+//        }
 
         glBegin(GL_TRIANGLES);
 

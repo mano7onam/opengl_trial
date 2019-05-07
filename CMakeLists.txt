@@ -3,7 +3,8 @@ project(OpenGL)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(OpenGL main.cpp kdtree.h SetPairs.h DataStructure.h Triangulation.h DelaunayTriangulation.cpp Triangle.cpp Vector3D.cpp DSU.h)
+#add_executable(OpenGL main.cpp kdtree.h SetPairs.h DataStructure.h Triangulation.h DelaunayTriangulation.cpp Triangle.cpp Vector3D.cpp DSU.h)
+add_executable(OpenGL main_nurbs.cpp)
 
 find_package(OpenGL REQUIRED)
 find_package(GLUT REQUIRED)
