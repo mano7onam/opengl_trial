@@ -114,6 +114,4 @@ int main(int argc, char** argv)
     glutReshapeFunc(reshape);
     glutMainLoop();
     return 0;
-
-    return 0;
 }
