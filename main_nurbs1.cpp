@@ -1,8 +1,9 @@
 #include <GLUT/glut.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <algorithm>
 
-GLfloat ctlpoints[5][5][3];
+GLfloat ctlpoints[6][6][3];
 int showPoints = 1;
 
 GLUnurbsObj *theNurb;
@@ -10,17 +11,25 @@ GLUnurbsObj *theNurb;
 void init_surface(void)
 {
     int u, v;
-    for (u = 0; u < 5; u++) {
-        for (v = 0; v < 5; v++) {
+    for (u = 0; u < 6; u++) {
+        for (v = 0; v < 6; v++) {
             ctlpoints[u][v][0] = 2.0f*((GLfloat)u - 1.5f);
             ctlpoints[u][v][1] = 2.0f*((GLfloat)v - 1.5f);
 
-            if ( (u == 1 || u == 2) && (v == 1 || v == 2))
+            if ( (u == 2 || u == 3) && (v == 2 || v == 3))
                 ctlpoints[u][v][2] = 3.0;
             else
                 ctlpoints[u][v][2] = -3.0f;
         }
     }
+
+//    std::swap(ctlpoints[0][3][0], ctlpoints[2][4][0]);
+//    std::swap(ctlpoints[0][3][1], ctlpoints[2][4][1]);
+//    std::swap(ctlpoints[0][3][2], ctlpoints[2][4][2]);
+//
+//    std::swap(ctlpoints[1][5][0], ctlpoints[4][1][0]);
+//    std::swap(ctlpoints[1][5][1], ctlpoints[4][1][1]);
+//    std::swap(ctlpoints[1][5][2], ctlpoints[4][1][2]);
 }
 
 void nurbsError(GLenum errorCode)
@@ -60,20 +69,20 @@ void init(void)
 
 void display(void)
 {
-    GLfloat knots[10] = {0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+    GLfloat knots[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
     int i, j;
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glPushMatrix();
     glRotatef(330.0, 1.,0.,0.);
-    glScalef (0.5, 0.5, 0.5);
+    glScalef (0.3, 0.3, 0.3);
 
     gluBeginSurface(theNurb);
     gluNurbsSurface(theNurb,
-                    10, knots, 10, knots,
-                    5 * 3, 3, &ctlpoints[0][0][0],
-                    5, 5, GL_MAP2_VERTEX_3);
+                    12, knots, 12, knots,
+                    6 * 3, 3, &ctlpoints[0][0][0],
+                    6, 6, GL_MAP2_VERTEX_3);
     gluEndSurface(theNurb);
 
     if (showPoints) {
@@ -81,8 +90,8 @@ void display(void)
         glDisable(GL_LIGHTING);
         glColor3f(1.0, 1.0, 0.0);
         glBegin(GL_POINTS);
-        for (i = 0; i < 5; i++) {
-            for (j = 0; j < 5; j++) {
+        for (i = 0; i < 6; i++) {
+            for (j = 0; j < 6; j++) {
                 glVertex3f(ctlpoints[i][j][0],
                            ctlpoints[i][j][1], ctlpoints[i][j][2]);
             }
