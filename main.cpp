@@ -37,6 +37,8 @@ struct Vertex
 };
 vector< Vertex > verts;
 vector< Vertex > vertsBunny;
+vector<int> vertsBunnyClasterId;
+vector<vector<int>> clastersVertsBunny; // to draw different colors
 vector<std::vector<int>> bunnyG;
 DSU bunnyDSU;
 vector<std::tuple<int, int, int>*> bunnyMesh;
@@ -443,6 +445,55 @@ void buildTrianglesBunny() {
     }
 }
 
+void colorClasters() {
+    std::mt19937::result_type seed = 7147;
+    std::mt19937 gen(seed);
+    auto colorRand = std::bind(std::uniform_real_distribution<float>(0.0f, 0.97f), gen);
+
+    for (const auto &cl: clastersVertsBunny) {
+        float r = colorRand();
+        float g = colorRand();
+        float b = colorRand();
+//        float r = 1.0f;
+//        float g = 0.0f;
+//        float b = 1.0f;
+        for (int ind: cl) {
+            auto &v = vertsBunny[ind];
+            v.r = r;
+            v.g = g;
+            v.b = b;
+        }
+    }
+}
+
+void clasterizePoints() {
+    buildKdTreeFromVerts();
+
+    vertsBunnyClasterId.assign(vertsBunny.size(), -1);
+
+    const int wantNeib = 200;
+    // TODO: find nearest not used points to current (need to find 36 this points) (maybe shuffle points at first)
+    for (int i = 0; i < vertsBunny.size(); ++i) {
+        if (vertsBunnyClasterId[i] != -1) continue;
+        auto nbs = kdTree.knnSearch(myPointsBunny[i], wantNeib);
+        vector<int> curClaster;
+        for (int j = 0; j < nbs.size(); ++j) {
+            int id = nbs[j];
+            if (vertsBunnyClasterId[i] == -1) {
+                curClaster.push_back(id);
+            }
+        }
+        int rest = wantNeib - (int)curClaster.size();
+        if (rest > wantNeib / 10) {
+            continue;
+        }
+        for (int j = 0; j < curClaster.size(); ++j) {
+            vertsBunnyClasterId[curClaster[j]] = (int)clastersVertsBunny.size();
+        }
+        clastersVertsBunny.push_back(curClaster);
+    }
+}
+
 void readVerticesFromPly() {
     std::mt19937::result_type seed = 7147;
     std::mt19937 gen(seed);
@@ -455,7 +506,7 @@ void readVerticesFromPly() {
     vector<float> angs = {0, /*M_PI / 4.0,*/ -M_PI / 2.0, M_PI, -3.0 * M_PI / 2.0};
     vector<int> nums = {40256, /*40097, */30379, 40251, 31701/*, 35336*/};
 #endif
-    for (int jj = 0; jj < 4/*files.size()*/; ++jj) {
+    for (int jj = 0; jj < 1/*files.size()*/; ++jj) {
         auto in = std::ifstream(files[jj]);
         std::string dummy;
         for (int i = 0; i < 24; ++i) {
@@ -478,16 +529,19 @@ void readVerticesFromPly() {
 //            cur.y = cur.y * cos(angs[jj]) - cur.z * sin(angs[jj]);
 //            cur.z = cur.y * sin(angs[jj]) + cur.z * cos(angs[jj]);
 
-            cur.a = 0.5f;
-            cur.r = real_rand() / 10.0f + 0.8f;
-            cur.g = real_rand() / 10.0f + 0.8f;
-            cur.b = real_rand() / 10.0f + 0.8f;
+            cur.a = 1.0f;
+            cur.r = 1.0f;
+            cur.g = 1.0f;
+            cur.b = 1.0f;
             vertsBunny.push_back(cur);
         }
     }
 
-    buildTrianglesBunny();
-    saveTrianglesToFile();
+//    buildTrianglesBunny();
+//    saveTrianglesToFile();
+
+    clasterizePoints();
+    colorClasters();
 }
 
 template<class T>
@@ -573,13 +627,13 @@ void display(void)
         glEnd();
     }
 
-//    for (auto v : vertsBunny) {
-//        glBegin(GL_POINTS);
-//        glColor3f(1.0,0.0,0.1);
-//        glPointSize(0.000000001);
-//        glVertex3f(v.x, v.y, v.z);
-//        glEnd();
-//    }
+    for (auto v : vertsBunny) {
+        glBegin(GL_POINTS);
+        glColor3f(v.r,v.g,v.b);
+        glPointSize(0.000000001);
+        glVertex3f(v.x, v.y, v.z);
+        glEnd();
+    }
 
     float minS = 10000000;
     for (auto tr: bunnyMesh) {
