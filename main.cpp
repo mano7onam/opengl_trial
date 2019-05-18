@@ -23,6 +23,8 @@
 #include "Triangulation.h"
 #include "DataStructure.h"
 #include "DSU.h"
+#include "math/point.h"
+#include "algorithms/NurbsBuilder.h"
 
 using std::vector;
 using std::pair;
@@ -30,11 +32,6 @@ using std::string;
 
 const int K = 50;
 
-struct Vertex
-{
-    float x, y, z, w;
-    float r, g, b, a;
-};
 vector< Vertex > verts;
 vector< Vertex > vertsBunny;
 vector<int> vertsBunnyClasterId;
@@ -42,24 +39,8 @@ vector<vector<int>> clastersVertsBunny; // to draw different colors
 vector<std::vector<int>> bunnyG;
 DSU bunnyDSU;
 vector<std::tuple<int, int, int>*> bunnyMesh;
-
-class MyPoint : public std::array<float, 3>
-{
-public:
-
-    // dimension of space (or "k" of k-d tree)
-    // KDTree class accesses this member
-    static const int DIM = 3;
-
-    // the constructors
-    MyPoint() {}
-    MyPoint(float x, float y, float z)
-    {
-        (*this)[0] = x;
-        (*this)[1] = y;
-        (*this)[2] = z;
-    }
-};
+vector<vector<GLfloat>> bunnyNurbs;
+GLUnurbsObj *theNurb;
 
 vector<MyPoint> myPointsBunny;
 kdt::KDTree<MyPoint> kdTree;
@@ -72,49 +53,7 @@ void buildKdTreeFromVerts() {
     kdTree.build(myPointsBunny);
 }
 
-#define sqr(x) ((x) * (x))
 
-float getDist(Vertex a, Vertex b) {
-    return sqrt(sqr(a.x - b.x) + sqr(a.y - b.y) + sqr(a.z - b.z));
-}
-
-float getDist(MyPoint a, MyPoint b) {
-    return sqrt(sqr(a[0] - b[0]) + sqr(a[1] - b[1]) + sqr(a[2] - b[2]));
-}
-
-float getS(Vertex a, Vertex b, Vertex c) {
-//    auto a = vertsBunny[std::get<0>(t)];
-//    auto b = vertsBunny[std::get<1>(t)];
-//    auto c = vertsBunny[std::get<2>(t)];
-
-//    float e1x = b.x - a.x;
-//    float e1y = b.y - a.y;
-//    float e1z = b.z - a.z;
-//
-//    float e2x = c.x - a.x;
-//    float e2y = c.y - a.y;
-//    float e2z = c.z - a.z;
-//
-//    float e3x = e1y * e2z - e1z * e2y;
-//    float e3y = e1z * e2x - e1x * e2z;
-//    float e3z = e1x * e2y - e1y * e2x;
-//
-//    return abs(0.5 * sqrt(e3x * e3x + e3y * e3y + e3z * e3z));
-
-    return abs(a.x - b.x) + abs(a.y - b.y) + abs(a.z - b.z) +
-            abs(a.x - c.x) + abs(a.y - c.y) + abs(a.z - c.z) +
-            abs(b.x - c.x) + abs(b.y - c.y) + abs(b.z - c.z);
-}
-
-MyPoint getMid(MyPoint a, MyPoint b) {
-    return MyPoint((a[0] + b[0]) * 0.5f, (a[1] + b[1]) * 0.5f, (a[2] + b[2]) * 0.5f);
-}
-
-struct Triangle {
-    Vertex a, b, c;
-
-    Triangle(Vertex a, Vertex b, Vertex c): a(a), b(b), c(c) {}
-};
 std::vector<Triangle> trianglesBunny;
 
 #ifdef UBUNTU
@@ -506,7 +445,7 @@ void readVerticesFromPly() {
     vector<float> angs = {0, /*M_PI / 4.0,*/ -M_PI / 2.0, M_PI, -3.0 * M_PI / 2.0};
     vector<int> nums = {40256, /*40097, */30379, 40251, 31701/*, 35336*/};
 #endif
-    for (int jj = 0; jj < 1/*files.size()*/; ++jj) {
+    for (int jj = 0; jj < 4/*files.size()*/; ++jj) {
         auto in = std::ifstream(files[jj]);
         std::string dummy;
         for (int i = 0; i < 24; ++i) {
@@ -540,8 +479,13 @@ void readVerticesFromPly() {
 //    buildTrianglesBunny();
 //    saveTrianglesToFile();
 
-    clasterizePoints();
-    colorClasters();
+//    clasterizePoints();
+//    colorClasters();
+    NurbsBuilder nb(vertsBunny);
+    nb.buildNurbs();
+//    trianglesBunny = nb.getTriangles();
+    vertsBunny = nb.getNewVertices();
+    bunnyNurbs = nb.getNurbs();
 }
 
 template<class T>
@@ -627,13 +571,13 @@ void display(void)
         glEnd();
     }
 
-    for (auto v : vertsBunny) {
-        glBegin(GL_POINTS);
-        glColor3f(v.r,v.g,v.b);
-        glPointSize(0.000000001);
-        glVertex3f(v.x, v.y, v.z);
-        glEnd();
-    }
+//    for (auto v : vertsBunny) {
+//        glBegin(GL_POINTS);
+//        glColor3f(v.r,v.g,v.b);
+//        glPointSize(0.000000001);
+//        glVertex3f(v.x, v.y, v.z);
+//        glEnd();
+//    }
 
     float minS = 10000000;
     for (auto tr: bunnyMesh) {
@@ -644,6 +588,16 @@ void display(void)
         if (s > 0.0) {
             minS = std::min(minS, s);
         }
+    }
+
+    GLfloat knots[12] = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0};
+    for (auto &nurb : bunnyNurbs) {
+        gluBeginSurface(theNurb);
+        gluNurbsSurface(theNurb,
+                        12, knots, 12, knots,
+                        6 * 3, 3, &nurb[0],
+                        6, 6, GL_MAP2_VERTEX_3);
+        gluEndSurface(theNurb);
     }
 
     for (auto tr : bunnyMesh) {
@@ -722,6 +676,15 @@ void inputKey(unsigned char c, int x, int y){
     changeSize(gls::width, gls::height);
 }
 
+void nurbsError(GLenum errorCode)
+{
+    const GLubyte *estring;
+
+    estring = gluErrorString(errorCode);
+    fprintf (stderr, "Nurbs Error: %s\n", estring);
+    exit (0);
+}
+
 int main( int argc, char **argv )
 {
     glutInit( &argc, argv );
@@ -733,6 +696,28 @@ int main( int argc, char **argv )
     glutKeyboardFunc(inputKey);
     glutReshapeFunc(changeSize);
     glutTimerFunc( 0, timer, 0 );
+
+    GLfloat mat_diffuse[] = { 0.7, 0.7, 0.7, 1.0 };
+    GLfloat mat_specular[] = { 1.0, 1.0, 1.0, 1.0 };
+    GLfloat mat_shininess[] = { 100.0 };
+
+    glClearColor (0.0, 0.0, 0.0, 0.0);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shininess);
+
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_AUTO_NORMAL);
+    glEnable(GL_NORMALIZE);
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+
+    theNurb = gluNewNurbsRenderer();
+    gluNurbsProperty(theNurb, GLU_SAMPLING_TOLERANCE, 25.0);
+    gluNurbsProperty(theNurb, GLU_DISPLAY_MODE, GLU_FILL);
+    gluNurbsCallback(theNurb, GLU_ERROR,
+                     (GLvoid (*)()) nurbsError);
 
     fillVerts();
     readVerticesFromPly();
