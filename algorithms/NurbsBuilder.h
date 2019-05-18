@@ -37,7 +37,7 @@ public:
         kdTree.build(myPoints);
     }
 
-    void clasterizePoints(int wantNeib = 200, int restPart = 10) {
+    void clasterizePoints(int wantNeib = 50, int restPart = 10) {
         buildKdTreeFromVerts();
 
         vertsClasterId.assign(verts.size(), -1);
