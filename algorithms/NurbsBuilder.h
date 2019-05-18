@@ -20,7 +20,6 @@ class NurbsBuilder {
     std::vector<Vertex> verts;
     std::vector<int> vertsClasterId;
     std::vector<std::vector<int>> clastersVerts;
-//    std::vector<Nurbs> vNurbs;
     kdt::KDTree<MyPoint> kdTree;
     std::vector<Triangle> triangles;
     std::vector<Vertex> newVertices;
